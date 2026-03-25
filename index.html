@@ -967,7 +967,7 @@ const rates = {
     south: { weekday: 98456, weekend: 114258 }
   };
   const BUYOUT_PLAYERS = 144;
-  const CART_PER_PLAYER = 40;
+  const BUYOUT_CART_SERVICE_FEE = 7200; // flat fee for carts + tournament services
 
   function fmt(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
   function fmtWhole(n) { return '$' + n.toLocaleString('en-US', {maximumFractionDigits:0}); }
@@ -1024,9 +1024,9 @@ const rates = {
     const dayLabel    = day === 'weekday'  ? 'Mon-Thu' : 'Fri-Sun';
 
     if (isBuyout) {
-      const totalBuyout = buyoutRates[course][day];
-      const cartTotal   = BUYOUT_PLAYERS * CART_PER_PLAYER;
-      const cityFee     = totalBuyout - cartTotal;
+    const totalBuyout = buyoutRates[course][day];
+    const cartTotal   = BUYOUT_CART_SERVICE_FEE;
+    const cityFee     = totalBuyout - cartTotal;
       document.getElementById('eventBadge').textContent       = `Full Course Buyout · ${courseLabel} · ${dayLabel}`;
       document.getElementById('buyoutCityFee').textContent    = fmtWhole(cityFee);
       document.getElementById('buyoutCartFee').textContent    = fmtWhole(cartTotal);
@@ -1117,7 +1117,7 @@ const rates = {
     let summary = '';
     if (isBuyout) {
       const totalBuyout = buyoutRates[course][day];
-      const cartTotal   = BUYOUT_PLAYERS * CART_PER_PLAYER;
+      const cartTotal   = BUYOUT_CART_SERVICE_FEE;
       summary = `<strong>Format:</strong> Full Course Buyout &nbsp;·&nbsp; <strong>Course:</strong> ${courseLabel} &nbsp;·&nbsp; <strong>Day:</strong> ${dayLabel}<br>
         <strong>Total Buyout:</strong> ${fmtWhole(totalBuyout)} &nbsp;·&nbsp;
         <strong>Payable to City:</strong> ${fmtWhole(totalBuyout - cartTotal)} &nbsp;·&nbsp;
@@ -1218,7 +1218,7 @@ const rates = {
     let perPlayer = '', estimatedTotal = '', playersCount = '', cityAmt = '', tpccAmt = '', cartFeeTotal = '', bookingFeeTotal = '';
     if (isBuyout) {
       const totalBuyout = buyoutRates[course][day];
-      const cartTotal   = BUYOUT_PLAYERS * CART_PER_PLAYER;
+      const cartTotal   = BUYOUT_CART_SERVICE_FEE;
       estimatedTotal = fmtWhole(totalBuyout);
       cityAmt  = fmtWhole(totalBuyout - cartTotal);
       tpccAmt  = fmtWhole(cartTotal);
