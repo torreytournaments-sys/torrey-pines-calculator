@@ -747,6 +747,11 @@
         </div>
       </div>
       <div>
+        <label>Event Year</label>
+        <select id="eventYear"></select>
+        <div class="input-hint" id="yearHint">Rates escalate for future event years.</div>
+      </div>
+      <div>
         <label>Tournament Format</label>
         <div class="toggle-group">
           <input type="radio" name="format" id="tee" value="tee">
@@ -823,6 +828,17 @@
         <span id="bookingSubtotal" style="font-weight:700; color:var(--rough); font-size:1rem;">$0.00</span>
       </div>
       <div style="font-size:0.75rem; color:var(--muted); margin-top:0.3rem;">Green fees and cart/tournament services fees are due 35 days prior to event.</div>
+    </div>
+    <div style="margin-top:1rem; padding:0.9rem 1rem; background:rgba(0,152,219,0.06); border:1px solid rgba(0,152,219,0.35); border-radius:10px; position:relative; z-index:1;" id="ccSurchargeRow">
+      <div style="display:flex; align-items:flex-start; gap:0.5rem;">
+        <span style="font-size:1rem; line-height:1.2;">&#x1F4B3;</span>
+        <div>
+          <div style="font-size:0.85rem; font-weight:600; color:var(--dark);">Credit Card Service Fee</div>
+          <div style="font-size:0.78rem; color:var(--muted); margin-top:0.25rem; line-height:1.5;">
+            Any payments made by credit card will incur an additional <strong style="color:var(--rough);">3.99% service fee</strong>. Payments made by check will <strong>not</strong> incur a service fee.
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -967,7 +983,64 @@ const rates = {
     south: { weekday: 98456, weekend: 114258 }
   };
   const BUYOUT_PLAYERS = 144;
-  const BUYOUT_CART_SERVICE_FEE = 7200; // flat fee for carts + tournament services
+  const CART_PER_PLAYER = 40;
+
+  // ---- Year-based rate escalation ----
+  // Base year uses the rates exactly as defined above.
+  // 2027: booking fees + green fees increase 1%.
+  // 2028 and beyond: increase 5% per year, compounded on the prior year.
+  // Cart / Tournament Services Fee becomes $45 in 2027 and stays there indefinitely.
+  const BASE_YEAR = 2026;
+  const YEAR_RANGE = 10; // populate BASE_YEAR through BASE_YEAR + 9
+
+  // Multiplier applied to green fees and booking fees for a given year.
+  function feeEscalation(year) {
+    if (year <= BASE_YEAR) return 1;
+    if (year === 2027) return 1.01;
+    // 2028+: start from the 2027 (1.01) figure, then compound 5% each additional year.
+    return 1.01 * Math.pow(1.05, year - 2027);
+  }
+
+  // Cart / Tournament Services Fee per player for a given year.
+  function cartFeeForYear(year) {
+    return year >= 2027 ? 45 : CART_PER_PLAYER;
+  }
+
+  // Returns the escalated standard rate object for the selected course/day/year.
+  // Escalated fees are rounded to the nearest dollar.
+  function getRates(course, day, year) {
+    const base = rates[course][day];
+    const f = feeEscalation(year);
+    return {
+      green:          Math.round(base.green * f),
+      bookingTee:     Math.round(base.bookingTee * f),
+      bookingShotgun: Math.round(base.bookingShotgun * f),
+      cart:           cartFeeForYear(year)
+    };
+  }
+
+  // Returns the escalated full-course buyout total (rounded to nearest dollar).
+  function getBuyout(course, day, year) {
+    return Math.round(buyoutRates[course][day] * feeEscalation(year));
+  }
+
+  function getSelectedYear() {
+    const sel = document.getElementById('eventYear');
+    return sel ? (parseInt(sel.value) || BASE_YEAR) : BASE_YEAR;
+  }
+
+  // Populate the Event Year dropdown on load.
+  (function populateYears() {
+    const sel = document.getElementById('eventYear');
+    if (!sel) return;
+    for (let y = BASE_YEAR; y < BASE_YEAR + YEAR_RANGE; y++) {
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      sel.appendChild(opt);
+    }
+    sel.value = BASE_YEAR;
+  })();
 
   function fmt(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
   function fmtWhole(n) { return '$' + n.toLocaleString('en-US', {maximumFractionDigits:0}); }
@@ -1015,6 +1088,7 @@ const rates = {
     if (!allSelected) return;
 
     const isBuyout = format === 'buyout';
+    const year     = getSelectedYear();
 
     document.getElementById('playersField').style.display   = isBuyout ? 'none'  : 'block';
     document.getElementById('standardFeeRows').style.display = isBuyout ? 'none'  : 'block';
@@ -1024,10 +1098,10 @@ const rates = {
     const dayLabel    = day === 'weekday'  ? 'Mon-Thu' : 'Fri-Sun';
 
     if (isBuyout) {
-    const totalBuyout = buyoutRates[course][day];
-    const cartTotal   = BUYOUT_CART_SERVICE_FEE;
-    const cityFee     = totalBuyout - cartTotal;
-      document.getElementById('eventBadge').textContent       = `Full Course Buyout · ${courseLabel} · ${dayLabel}`;
+      const totalBuyout = getBuyout(course, day, year);
+      const cartTotal   = BUYOUT_PLAYERS * cartFeeForYear(year);
+      const cityFee     = totalBuyout - cartTotal;
+      document.getElementById('eventBadge').textContent       = `Full Course Buyout · ${courseLabel} · ${dayLabel} · ${year}`;
       document.getElementById('buyoutCityFee').textContent    = fmtWhole(cityFee);
       document.getElementById('buyoutCartFee').textContent    = fmtWhole(cartTotal);
       document.getElementById('grandTotal').textContent       = fmtWhole(totalBuyout);
@@ -1041,7 +1115,7 @@ const rates = {
     } else {
       const playerInput = document.getElementById('players');
       let players = parseInt(playerInput.value) || 0;
-      const r = rates[course][day];
+      const r = getRates(course, day, year);
       const isShotgun  = format === 'shotgun';
       const bookingFee = isShotgun ? r.bookingShotgun : r.bookingTee;
       const perPlayer  = r.green + bookingFee + r.cart;
@@ -1068,7 +1142,7 @@ const rates = {
 
       const total    = players * perPlayer;
       const fmtLabel = isShotgun ? 'Shotgun' : 'Consecutive Tee';
-      document.getElementById('eventBadge').textContent      = `${fmtLabel} · ${courseLabel} · ${dayLabel}`;
+      document.getElementById('eventBadge').textContent      = `${fmtLabel} · ${courseLabel} · ${dayLabel} · ${year}`;
       document.getElementById('greenFeeDisplay').textContent = fmt(r.green);
       document.getElementById('bookingFeeDisplay').textContent = fmt(bookingFee);
       document.getElementById('cartFeeDisplay').textContent  = fmt(r.cart);
@@ -1086,6 +1160,7 @@ const rates = {
   // Event delegation &mdash; works regardless of element visibility
   document.addEventListener('change', function(e) {
     if (['course','daytype','format'].includes(e.target.name)) update();
+    if (e.target.id === 'eventYear') update();
   });
   document.addEventListener('input', function(e) {
     if (e.target.id === 'players') update();
@@ -1112,23 +1187,24 @@ const rates = {
     const format = getVal('format');
     if (!course || !day || !format) return;
     const isBuyout     = format === 'buyout';
+    const year         = getSelectedYear();
     const courseLabel  = course === 'north' ? 'North Course' : 'South Course';
     const dayLabel     = day === 'weekday'  ? 'Monday&ndash;Thursday' : 'Friday&ndash;Sunday';
     let summary = '';
     if (isBuyout) {
-      const totalBuyout = buyoutRates[course][day];
-      const cartTotal   = BUYOUT_CART_SERVICE_FEE;
-      summary = `<strong>Format:</strong> Full Course Buyout &nbsp;·&nbsp; <strong>Course:</strong> ${courseLabel} &nbsp;·&nbsp; <strong>Day:</strong> ${dayLabel}<br>
+      const totalBuyout = getBuyout(course, day, year);
+      const cartTotal   = BUYOUT_PLAYERS * cartFeeForYear(year);
+      summary = `<strong>Format:</strong> Full Course Buyout &nbsp;·&nbsp; <strong>Course:</strong> ${courseLabel} &nbsp;·&nbsp; <strong>Day:</strong> ${dayLabel} &nbsp;·&nbsp; <strong>Year:</strong> ${year}<br>
         <strong>Total Buyout:</strong> ${fmtWhole(totalBuyout)} &nbsp;·&nbsp;
         <strong>Payable to City:</strong> ${fmtWhole(totalBuyout - cartTotal)} &nbsp;·&nbsp;
         <strong>Payable to TPCC:</strong> ${fmtWhole(cartTotal)}`;
     } else {
-      const r = rates[course][day];
+      const r = getRates(course, day, year);
       const isShotgun  = format === 'shotgun';
       const bookingFee = isShotgun ? r.bookingShotgun : r.bookingTee;
       const perPlayer  = r.green + bookingFee + r.cart;
       const players    = parseInt(document.getElementById('players').value) || 0;
-      summary = `<strong>Format:</strong> ${isShotgun ? 'Shotgun' : 'Consecutive Tee Times'} &nbsp;·&nbsp; <strong>Course:</strong> ${courseLabel} &nbsp;·&nbsp; <strong>Day:</strong> ${dayLabel}<br>
+      summary = `<strong>Format:</strong> ${isShotgun ? 'Shotgun' : 'Consecutive Tee Times'} &nbsp;·&nbsp; <strong>Course:</strong> ${courseLabel} &nbsp;·&nbsp; <strong>Day:</strong> ${dayLabel} &nbsp;·&nbsp; <strong>Year:</strong> ${year}<br>
         <strong>Players:</strong> ${players} &nbsp;·&nbsp;
         <strong>Per Player:</strong> ${fmt(perPlayer)} &nbsp;·&nbsp;
         <strong>Estimated Total:</strong> ${fmtWhole(players * perPlayer)}`;
@@ -1212,13 +1288,14 @@ const rates = {
     const courseLabel = course === 'north' ? 'North Course' : 'South Course';
     const dayLabel    = day === 'weekday'  ? 'Monday&ndash;Thursday' : 'Friday&ndash;Sunday';
     const fmtLabel    = isBuyout ? 'Full Course Buyout' : format === 'shotgun' ? 'Shotgun' : 'Consecutive Tee Times';
+    const year = getSelectedYear();
     const now = new Date();
     const dates = collectDates();
 
     let perPlayer = '', estimatedTotal = '', playersCount = '', cityAmt = '', tpccAmt = '', cartFeeTotal = '', bookingFeeTotal = '';
     if (isBuyout) {
-      const totalBuyout = buyoutRates[course][day];
-      const cartTotal   = BUYOUT_CART_SERVICE_FEE;
+      const totalBuyout = getBuyout(course, day, year);
+      const cartTotal   = BUYOUT_PLAYERS * cartFeeForYear(year);
       estimatedTotal = fmtWhole(totalBuyout);
       cityAmt  = fmtWhole(totalBuyout - cartTotal);
       tpccAmt  = fmtWhole(cartTotal);
@@ -1226,7 +1303,7 @@ const rates = {
       bookingFeeTotal = '';
       playersCount = 'Up to 144 (full buyout)';
     } else {
-      const r = rates[course][day];
+      const r = getRates(course, day, year);
       const isShotgun  = format === 'shotgun';
       const bookingFee = isShotgun ? r.bookingShotgun : r.bookingTee;
       const pp = r.green + bookingFee + r.cart;
@@ -1247,6 +1324,7 @@ const rates = {
       email:          document.getElementById('f_email').value.trim(),
       course:         courseLabel,
       format:         fmtLabel,
+      eventYear:      year,
       players:        playersCount,
       date1: dates[0] ? dates[0].start : '',
       date2: dates[1] ? dates[1].start : '',
@@ -1322,4 +1400,3 @@ const rates = {
     window.scrollTo({ top:0, behavior:'smooth' });
   }
 </script>
-
