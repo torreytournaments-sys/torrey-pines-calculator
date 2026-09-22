@@ -1046,14 +1046,15 @@ const rates = {
   }
 
   // Returns the escalated standard rate object for the selected course/day/year.
-  // Escalated fees are rounded to the nearest dollar.
+  // Only green fees escalate; booking fees remain fixed at 2026 rates.
+  // Escalated green fees are rounded to the nearest dollar.
   function getRates(course, day, year) {
     const base = rates[course][day];
     const f = feeEscalation(year);
     return {
       green:          Math.round(base.green * f),
-      bookingTee:     Math.round(base.bookingTee * f),
-      bookingShotgun: Math.round(base.bookingShotgun * f),
+      bookingTee:     base.bookingTee,
+      bookingShotgun: base.bookingShotgun,
       cart:           cartFeeForYear(year)
     };
   }
