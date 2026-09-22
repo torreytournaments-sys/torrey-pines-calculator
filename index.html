@@ -877,6 +877,10 @@
         </div>
       </div>
     </div>
+    <!-- Estimate disclaimer -->
+    <div style="margin-top:0.75rem; padding:0.75rem 1rem; background:rgba(30,42,53,0.04); border:1px solid rgba(30,42,53,0.12); border-radius:10px; font-size:0.75rem; color:var(--muted); line-height:1.6;">
+      <strong style="color:var(--dark);">Disclaimer:</strong> All fees shown are estimates only. Due to rounding, actual charges may differ from the amounts displayed. Final rates will be confirmed in your Reservation Agreement.
+    </div>
   </div>
 
   <!-- Payment note (hidden until all options selected) -->
@@ -1024,8 +1028,7 @@ const rates = {
 
   // ---- Year-based rate escalation ----
   // Base year uses the rates exactly as defined above.
-  // 2027: booking fees + green fees increase 1%.
-  // 2028 and beyond: increase 5% per year, compounded on the prior year.
+  // 2027 and beyond: green fees and booking fees increase 5% per year, compounded.
   // Cart / Tournament Services Fee becomes $45 in 2027 and stays there indefinitely.
   const BASE_YEAR = 2026;
   const YEAR_RANGE = 10; // populate BASE_YEAR through BASE_YEAR + 9
@@ -1033,9 +1036,8 @@ const rates = {
   // Multiplier applied to green fees and booking fees for a given year.
   function feeEscalation(year) {
     if (year <= BASE_YEAR) return 1;
-    if (year === 2027) return 1.01;
-    // 2028+: start from the 2027 (1.01) figure, then compound 5% each additional year.
-    return 1.01 * Math.pow(1.05, year - 2027);
+    // 2027+: compound 5% per year from 2026 base.
+    return Math.pow(1.05, year - BASE_YEAR);
   }
 
   // Cart / Tournament Services Fee per player for a given year.
