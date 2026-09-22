@@ -1024,12 +1024,13 @@ const rates = {
     south: { weekday: 98456, weekend: 114258 }
   };
   const BUYOUT_PLAYERS = 144;
-  const CART_PER_PLAYER = 40;
+  const CART_PER_PLAYER = 40;          // static for all years
+  const BUYOUT_CART_FLAT = 7200;       // flat cart/tournament services fee for full buyout
 
   // ---- Year-based rate escalation ----
   // Base year uses the rates exactly as defined above.
-  // 2027 and beyond: green fees and booking fees increase 5% per year, compounded.
-  // Cart / Tournament Services Fee becomes $45 in 2027 and stays there indefinitely.
+  // 2027 and beyond: green fees increase 5% per year, compounded.
+  // Booking fees and cart/tournament services fees remain fixed at 2026 rates.
   const BASE_YEAR = 2026;
   const YEAR_RANGE = 10; // populate BASE_YEAR through BASE_YEAR + 9
 
@@ -1041,8 +1042,9 @@ const rates = {
   }
 
   // Cart / Tournament Services Fee per player for a given year.
+  // Cart / Tournament Services Fee is static at $40 per player for all years.
   function cartFeeForYear(year) {
-    return year >= 2027 ? 45 : CART_PER_PLAYER;
+    return CART_PER_PLAYER;
   }
 
   // Returns the escalated standard rate object for the selected course/day/year.
@@ -1139,7 +1141,7 @@ const rates = {
 
     if (isBuyout) {
       const totalBuyout = getBuyout(course, day, year);
-      const cartTotal   = BUYOUT_PLAYERS * cartFeeForYear(year);
+      const cartTotal   = BUYOUT_CART_FLAT;
       const cityFee     = totalBuyout - cartTotal;
       document.getElementById('eventBadge').textContent       = `Full Course Buyout · ${courseLabel} · ${dayLabel} · ${year}`;
       document.getElementById('buyoutCityFee').textContent    = fmtWhole(cityFee);
@@ -1233,7 +1235,7 @@ const rates = {
     let summary = '';
     if (isBuyout) {
       const totalBuyout = getBuyout(course, day, year);
-      const cartTotal   = BUYOUT_PLAYERS * cartFeeForYear(year);
+      const cartTotal   = BUYOUT_CART_FLAT;
       summary = `<strong>Format:</strong> Full Course Buyout &nbsp;·&nbsp; <strong>Course:</strong> ${courseLabel} &nbsp;·&nbsp; <strong>Day:</strong> ${dayLabel} &nbsp;·&nbsp; <strong>Year:</strong> ${year}<br>
         <strong>Total Buyout:</strong> ${fmtWhole(totalBuyout)} &nbsp;·&nbsp;
         <strong>Payable to City:</strong> ${fmtWhole(totalBuyout - cartTotal)} &nbsp;·&nbsp;
@@ -1335,7 +1337,7 @@ const rates = {
     let perPlayer = '', estimatedTotal = '', playersCount = '', cityAmt = '', tpccAmt = '', cartFeeTotal = '', bookingFeeTotal = '';
     if (isBuyout) {
       const totalBuyout = getBuyout(course, day, year);
-      const cartTotal   = BUYOUT_PLAYERS * cartFeeForYear(year);
+      const cartTotal   = BUYOUT_CART_FLAT;
       estimatedTotal = fmtWhole(totalBuyout);
       cityAmt  = fmtWhole(totalBuyout - cartTotal);
       tpccAmt  = fmtWhole(cartTotal);
